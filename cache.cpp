@@ -19,8 +19,14 @@ CacheItem::CacheItem() : createdTime(std::chrono::steady_clock::now()),
     }
 
     buffer = (buffer_t*)malloc(sizeof(buffer_t));
+    if (buffer == NULL) {
+        throw std::runtime_error("buffer == NULL");
+    }
     buffer->capacity = CACHE_SIZE;
-    buffer->data = (char*)malloc(CACHE_SIZE);
+    buffer->data = (char*)calloc(CACHE_SIZE, sizeof(char));
+    if (buffer->data == NULL) {
+        throw std::runtime_error("buffer->data == NULL");
+    }
 }
 
 buffer_t* CacheItem::getData() {
@@ -109,14 +115,12 @@ Cache::Cache() {
 }
 
 void Cache::clean() {
-    if (cache_map.size() > MAP_SIZE) {
-        for (auto it = cache_map.begin(); it != cache_map.end();) {
-            if (it->second->timeOut(std::chrono::steady_clock::now())) {
-                it = cache_map.erase(it);
-            }
-            else {
-                it++;
-            }
+    for (auto it = cache_map.begin(); it != cache_map.end();) {
+        if (it->second->timeOut(std::chrono::steady_clock::now()) || it->second->getErred()) {
+            it = cache_map.erase(it);
+        }
+        else {
+            it++;
         }
     }
 
@@ -152,8 +156,11 @@ std::shared_ptr<CacheItem> Cache::get(std::string key) {
 
     if (it != cache_map.end()) {
         data = it->second;
+        if (data->getErred()) {
+            pthread_rwlock_unlock(&lock);
+            return nullptr;
+        }
     }
-
     pthread_rwlock_unlock(&lock);
     return data;
 }

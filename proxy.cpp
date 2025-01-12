@@ -36,9 +36,8 @@ HTTPProxy::HTTPProxy(int p, size_t count) : port(p), connection_count(count) {
 void* HTTPProxy::client_thread_func(void* arg) {
     try {
         int new_socket = *static_cast<int*>(arg);
-        ClientConnection* conn_ptr = new ClientConnection(new_socket, cache);
+        std::shared_ptr<ClientConnection> conn_ptr = std::make_shared<ClientConnection>(new_socket, cache);
         conn_ptr->start();
-        delete conn_ptr;
     }
     catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;

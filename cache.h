@@ -12,7 +12,7 @@
 
 #define MAP_SIZE 128
 
-#define CACHE_SIZE 1024
+#define CACHE_SIZE 1024 * 256
 
 struct buffer_t {
     char* data;

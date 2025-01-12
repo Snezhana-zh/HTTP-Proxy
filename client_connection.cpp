@@ -20,6 +20,7 @@ int write_data_cache(int client, std::shared_ptr<CacheItem> cache_item) {
 
         if (cache_item->getErred()) {
             cache_item->unlock();
+            std::cerr << "ERROR write bytes count getErred() " << std::endl;
             return 1;
         }
 
@@ -36,40 +37,34 @@ int write_data_cache(int client, std::shared_ptr<CacheItem> cache_item) {
         while (sent < len) {
             int n = write(client, buffer->data + sent, len - sent);
 
-            std::cerr << "write bytes count = " << n << std::endl;
-
-            if (n <= 0) {
+            if (n < 0) {
+                std::cerr << "ERROR write bytes count n = " << n << strerror(errno) << std::endl;
                 return 1;
             }
 
             sent += n;
         }
     }
-
+    
     return 0;
 }
 
 int read_req_from_client(http_request_t* request, char** res, int& len, int client) {
     int size = REQUEST_BUFSIZE;
-    char *request_buf = (char*)malloc(size);
+    char *request_buf = (char*)calloc(size, 1);
 
     int recv_count = 0;
 
     while (!request->done) {
-        if (recv_count == size) {
-            size *= 2;
-            request_buf = (char*)realloc(request_buf, size);
-        }
-
         int n = read(client, request_buf + recv_count, size - recv_count);
-        if (n <= 0) {
+        if (n < 0) {
+            std::cerr << "ERROR read n = " << n << std::endl;
             free(request_buf);
             return 1;
         }
 
         int err = http_request_parse(request, request_buf + recv_count, n);
         if (err) {
-            std::cerr << "http_request_parse" << std::endl;
             free(request_buf);
             return 1;
         }
@@ -112,7 +107,7 @@ void ClientConnection::start() {
         std::cerr << "DATA START url = " << request.url << std::endl;
         auto cache_it = cache->putEmpty(request.url);
 
-        ServerConnection* srv_conn = new ServerConnection(request.url, cache_it);
+        ServerConnection* srv_conn = new ServerConnection(request.url, cache_it, client_socket);
         err = srv_conn->fill_request(request_buf, recv_count);
         if (err != 0) {
             std::cerr << "fill_request" << std::endl;
@@ -123,17 +118,12 @@ void ClientConnection::start() {
 
         free(request_buf);
 
-        pthread_t fetch_thread;
-        if (pthread_create(&fetch_thread, NULL, Connection::thread_func, (void*)srv_conn) != 0) {
+        pthread_t srv_thread;
+        if (pthread_create(&srv_thread, NULL, Connection::thread_func, (void*)srv_conn) != 0) {
             throw std::runtime_error("pthread_create failed");
         }
-        pthread_detach(fetch_thread);
 
-        err = write_data_cache(client_socket, cache_it);
-        if (err) {
-            std::cerr << "write_data_cache" << std::endl;
-            return;
-        }
+        pthread_join(srv_thread, NULL);
 
         std::cerr << "DATA END" << std::endl;
 

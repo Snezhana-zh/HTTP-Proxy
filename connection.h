@@ -52,7 +52,7 @@ private:
 
 class ServerConnection : public Connection {
 public:
-    ServerConnection(char* url_, std::shared_ptr<CacheItem> cache_item);
+    ServerConnection(char* url_, std::shared_ptr<CacheItem> cache_item, int client_socket);
 
     void start();
 
@@ -61,8 +61,7 @@ public:
     ~ServerConnection();
 private:
     char* url;
-
     std::shared_ptr<CacheItem> cache_item;
-    
     int server_socket;
+    int client_socket;
 };

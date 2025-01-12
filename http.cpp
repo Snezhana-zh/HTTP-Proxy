@@ -5,6 +5,7 @@
 #include <string>
 #include <cstring>
 #include <stdexcept>
+#include <iostream>
 
 #include <llhttp.h>
 
